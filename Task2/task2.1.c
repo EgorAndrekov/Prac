@@ -14,6 +14,10 @@ int main(){
 
     double x;
     while(scanf("%lf", &x) != EOF){
+        if (x == 0.0){
+            printf("%.10g\n", x);
+            continue;
+        }
         double xi = 1.0;
         double xii = 0.5*(xi + x/xi);
         printf("%.10g %.10g\n",xi, xii);
