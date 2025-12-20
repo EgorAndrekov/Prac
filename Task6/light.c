@@ -31,10 +31,6 @@ int semaphore_set(int semid, int semnum, int value) {
 
 int main() {
     int semid = semget(SEM_KEY, 2, IPC_CREAT | 0666);
-    if (semid == -1) {
-        perror("Не удалось создать семафор");
-        exit(1);
-    }
     
     semaphore_set(semid, SEM_RED, 1);
     semaphore_set(semid, SEM_ACTIVE, 1);

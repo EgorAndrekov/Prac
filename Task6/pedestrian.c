@@ -21,38 +21,24 @@ int check_semaphore_active(int semid) {
         if (errno == EIDRM) {
             return -1; // Семафор удален
         }
-        return 0; // Ошибка
     }
     return active;
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        fprintf(stderr, "Использование: %s <интервал_гуляния_в_секундах>\n", argv[0]);
-        exit(1);
-    }
     
     int walk_interval = atoi(argv[1]);
-    if (walk_interval <= 0) {
-        fprintf(stderr, "Интервал должен быть положительным числом\n");
-        exit(1);
-    }
     
     pid_t pid = getpid();
-    srand(time(NULL) ^ pid);
     
     // Получаем идентификатор семафора
     int semid = semget(SEM_KEY, 2, 0666);
-    if (semid == -1) {
-        fprintf(stderr, "Пешеход %d: светофор не найден, завершение\n", pid);
-        exit(0);
-    }
     
     printf("Пешеход %d запущен, гуляет каждые %d секунд\n", pid, walk_interval);
     
     while (1) {
         // Гуляем
-        int walk_time = walk_interval / 2 + rand() % (walk_interval + 1);
+        int walk_time = walk_interval;
         sleep(walk_time);
         
         fprintf(stderr, "Пешеход %d: %s\n", pid, MSG_WALKING);
