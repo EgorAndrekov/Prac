@@ -4,27 +4,27 @@ ls
 
 ls > out.txt
 
-echo "Hello" >> out.txt
+echo "Hello" >> out.txt 
 
-cat < out.txt | wc -l
+cat < out.txt | wc -l 
 
 ls | wc -l
 
 cat out.txt | grep Hello
 
-sleep 5 & echo "qqq"
+sleep 5 & echo "qqq" 
 
-echo This is not a comment # This is a comment
+echo This is not a comment # This is a comment 
 
 echo $USER
 
-echo $SHELL
+echo $SHELL 
 
 ( cd .. ;  ls ) | sort
 
-sort -n < source | grep 'xyz' | cat > result
+yes | yes | yes | yes | yes | yes | yes | yes | head 
 
-cd ..
+cd .. 
 
 ls | wc
 
@@ -32,14 +32,10 @@ ls && pwd
 
 ( cd .. ; pwd )
 
-ls > out.txt
-
 ls & pwd
 
 ( ls | grep txt ) && echo "Found" || echo "Not Found"
 
-cat file | grep error > errors.txt
-
-grep error < input.txt > output.txt
-
 ( echo Start && ls ) || echo "Failed"
+
+echo $HOME

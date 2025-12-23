@@ -1,201 +1,122 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include "exec.h"
 #include <unistd.h>
 #include <sys/wait.h>
-#include <string.h>
 #include <fcntl.h>
-#include "exec.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <signal.h>
 
-static int exec_command(Tree *node);
-static int exec_pipeline(Tree *node);
-static int exec_and(Tree *node);
-static int exec_or(Tree *node);
-static int exec_semicolon(Tree *node);
-static int exec_background(Tree *node);
+int shell_exit = 0;
 
-int execute(Tree *root){
-    if (!root)
+static int is_builtin(cmd_t *c) {
+    return c && c->argv &&
+        (!strcmp(c->argv[0],"cd") ||
+         !strcmp(c->argv[0],"pwd")||
+         !strcmp(c->argv[0],"exit"));
+}
+
+static int run_builtin(cmd_t *c) {
+    if (!strcmp(c->argv[0],"exit")) {
+        shell_exit = 1;
         return 0;
-    switch (root->type){
-    case NODE_COMMAND:
-        return exec_command(root);
-    case NODE_PIPE:
-        return exec_pipeline(root);
-    case NODE_AND:
-        return exec_and(root);
-    case NODE_OR:
-        return exec_or(root);
-    case NODE_SEMICOLON:
-        return exec_semicolon(root);
-    case NODE_BACKGROUND:
-        return exec_background(root);
+    }
+    if (!strcmp(c->argv[0],"cd")) {
+        const char *d = c->argv[1] ? c->argv[1] : getenv("HOME");
+        if (chdir(d) < 0) perror("cd");
+        return 0;
+    }
+    if (!strcmp(c->argv[0],"pwd")) {
+        char b[1024];
+        if (getcwd(b,sizeof(b))) puts(b);
+        return 0;
     }
     return 0;
 }
 
-static int exec_command(Tree *node){
-    if (node->cmd.is_subshell){
-        // подшел, создаем дочерний процесс, чтоб текущий не менялся
-        pid_t pid = fork();
-        if (pid < 0){
-            perror("fork");
-            return 1;
+static pid_t spawn(cmd_t *c, int in, int out, int bg) {
+    pid_t p = fork();
+    if (p == 0) {
+        signal(SIGINT, bg ? SIG_IGN : SIG_DFL);
+        if (in)  dup2(in,0);
+        if (out!=1) dup2(out,1);
+
+        if (c->in) {
+            int f=open(c->in,O_RDONLY);
+            if (f<0) _exit(1);
+            dup2(f,0);
         }
-        if (pid == 0){
-            int status = execute(node->cmd.subshell);
-            exit(status);
+        if (c->out) {
+            int f=open(c->out,
+                O_WRONLY|O_CREAT|(c->append?O_APPEND:O_TRUNC),0666);
+            if (f<0) _exit(1);
+            dup2(f,1);
         }
-        int status;
-        waitpid(pid, &status, 0);
-        return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
-    } else{
-        // простая команда
-        if (node->cmd.argc == 0){
-            // пустая
-            return 0;
+        if (c->subshell) {
+            int r = exec_tree(c->subshell);
+
+            tree_free(c->subshell);
+            c->subshell = NULL;
+
+            _exit(r);
         }
-        // внутрение команды
-        if (strcmp(node->cmd.argv[0], "exit") == 0){
-            exit(0);
-        } else if (strcmp(node->cmd.argv[0], "cd") == 0){
-            const char *dir = (node->cmd.argc > 1) ? node->cmd.argv[1] : getenv("HOME");
-            if (!dir){
-                dir = getenv("HOME");
-            }
-            if (chdir(dir) == -1){
-                perror("cd");
-                return 1;
-            }
-        } else if (strcmp(node->cmd.argv[0], "pwd") == 0){
-            char cwd[4096];
-            if (getcwd(cwd, sizeof(cwd))){
-                printf("%s\n", cwd);
-                return 0;
-            } else{
-                perror("pwd");
-                return 1;
-            }
-        }
-        // внешняя команда
-        pid_t pid = fork();
-        if (pid < 0){
-            perror("fork");
-            return 1;
-        }
-        if (pid == 0){
-            // перенаправления
-            if (node->cmd.redirect.input){
-                int fd = open(node->cmd.redirect.input, O_RDONLY);
-                if (fd < 0){
-                    perror("open input");
-                    exit(1);
-                }
-                dup2(fd, STDIN_FILENO);
-                close(fd);
-            }
-            if (node->cmd.redirect.output){
-                int flags = O_WRONLY | O_CREAT;
-                if (node->cmd.redirect.append){
-                    flags |= O_APPEND;
-                } else{
-                    flags |= O_TRUNC;
-                }
-                int fd = open(node->cmd.redirect.output, flags, 0666);
-                if (fd < 0){
-                    perror("open output");
-                    exit(1);
-                }
-                dup2(fd, STDOUT_FILENO);
-                close(fd);
-            }
-            execvp(node->cmd.argv[0], node->cmd.argv);
-            perror("execvp");
-            exit(127);
-        }
-        int status;
-        waitpid(pid, &status, 0);
-        return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+
+        execvp(c->argv[0], c->argv);
+        perror(c->argv[0]);
+        _exit(1);
     }
+    return p;
 }
 
-static int exec_pipeline(Tree *node){
-    int fd[2];
-    if (pipe(fd) < 0){
-        perror("pipe");
-        return 1;
-    }
-    pid_t pid_left = fork();
-    if (pid_left < 0){
-        perror("fork left");
-        return 1;
-    }
-    if (pid_left == 0){
-        dup2(fd[1], STDOUT_FILENO);
-        close(fd[0]);
-        close(fd[1]);
-        int status = execute(node->left);
-        exit(status);
-    }
-    pid_t pid_right = fork();
-    if (pid_right < 0){
-        perror("fork right");
-        return 1;
-    }
-    if (pid_right == 0){
-        dup2(fd[0], STDIN_FILENO);
-        close(fd[0]);
-        close(fd[1]);
-        int status = execute(node->right);
-        exit(status);
-    }
-    close(fd[0]);
-    close(fd[1]);
-    int status_left, status_right;
-    waitpid(pid_left, &status_left, 0);
-    waitpid(pid_right, &status_right, 0);
-    return WIFEXITED(status_right) ? WEXITSTATUS(status_right) : 1;
-}
+static int exec_pipe(cmd_t *cmd) {
+    if (!cmd) return 0;
+    if (!cmd->pipe && is_builtin(cmd))
+        return run_builtin(cmd);
 
-static int exec_and(Tree *node){
-    int left_status = execute(node->left);
-    if (left_status == 0){
-        return execute(node->right);
-    } else{
-        return left_status;
-    }
-}
+    int in = 0, fd[2];
+    pid_t last = -1;
+    int bg = cmd->bg;
 
-static int exec_or(Tree *node){
-    int left_status = execute(node->left);
-    if (left_status != 0){
-        return execute(node->right);
-    } else{
-        return left_status;
-    }
-}
-
-static int exec_semicolon(Tree *node){
-    // левая потом правая
-    (void)execute(node->left);
-    return execute(node->right);
-}
-
-static int exec_background(Tree *node){
-    pid_t pid = fork();
-    if (pid < 0){
-        perror("fork background");
-        return 1;
-    }
-    if (pid == 0){
-        // перенаправим stdin из /dev/null чтобы точно не было блокировки терминала
-        int fd = open("/dev/null", O_RDONLY);
-        if (fd >= 0){
-            dup2(fd, STDIN_FILENO);
-            close(fd);
+    for (cmd_t *c=cmd; c; c=c->pipe) {
+        int out = 1;
+        if (c->pipe) {
+            pipe(fd);
+            out = fd[1];
         }
-        int status = execute(node->left);
-        exit(status);
+        last = spawn(c, in, out, bg);
+        if (c->subshell) {
+            tree_free(c->subshell);
+            c->subshell = NULL;
+        }
+        if (in) close(in);
+        if (out!=1) close(out);
+        if (c->pipe) in = fd[0];
     }
-    // родитель не ждет а сразу праавую выполянет
-    return execute(node->right);
+
+    if (!bg && last > 0) {
+        int st;
+        waitpid(last, &st, 0);
+        return WIFEXITED(st) ? WEXITSTATUS(st) : 1;
+    }
+    return 0;
+}
+
+int exec_tree(cmd_t *t) {
+    int r = 0;
+    extern volatile sig_atomic_t sigint_received;
+
+    for (; t; t = t->next) {
+        if (sigint_received)
+            break;
+
+        r = exec_pipe(t);
+
+        if (sigint_received)
+            break;
+
+        if (t->op==OP_AND && r) break;
+        if (t->op==OP_OR  && !r) break;
+    }
+
+    return r;
 }

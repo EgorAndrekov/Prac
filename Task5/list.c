@@ -1,330 +1,129 @@
 #include "list.h"
-
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <unistd.h>    // для geteuid() и getlogin()
-#include <sys/types.h> // для uid_t
-#include <pwd.h>       // для получения HOME
 
-void list_init(List *list)
-{
-    list->head = NULL;
-    list->tail = NULL;
-    list->lenght = 0;
+static char *xstrdup(const char *s) {
+    size_t n = strlen(s) + 1;
+    char *p = malloc(n);
+    if (p) memcpy(p, s, n);
+    return p;
 }
 
-void list_push(List *list, const char *word)
-{
-    ListNode *new_node = (ListNode *)malloc(sizeof(ListNode));
-    if (!new_node)
-    {
-        fprintf(stderr, "Error list_push memory\n");
+static lex_t *lex_new(const char *s) {
+    lex_t *l = malloc(sizeof(*l));
+    l->s = xstrdup(s);
+    l->next = NULL;
+    return l;
+}
+
+static void lex_push(lex_t **l, const char *s) {
+    lex_t *n = lex_new(s);
+    if (!*l) *l = n;
+    else {
+        lex_t *p = *l;
+        while (p->next) p = p->next;
+        p->next = n;
+    }
+}
+
+static void emit_token(lex_t **l, const char *buf) {
+    if (!buf || !buf[0]) return;
+
+    if (buf[0] == '#')
+        return;
+
+    size_t len = strlen(buf);
+    if (len >= 2 && buf[0] == '"' && buf[len - 1] == '"') {
+        char tmp[1024];
+        size_t n = len - 2;
+        if (n >= sizeof(tmp)) n = sizeof(tmp) - 1;
+        memcpy(tmp, buf + 1, n);
+        tmp[n] = 0;
+        lex_push(l, tmp);
         return;
     }
-    new_node->str = strdup(word);
-    new_node->next = NULL;
 
-    if (list->tail)
-    {
-        list->tail->next = new_node;
+    if (buf[0] == '$') {
+        const char *v = getenv(buf + 1);
+        lex_push(l, v ? v : "");
+        return;
     }
-    else
-    {
-        list->head = new_node;
-    }
-    list->tail = new_node;
-    list->lenght++;
-}
 
-void list_print(List *list)
-{
-    printf("List len: %zu\n", list->lenght);
-    ListNode *current = list->head;
-    while (current)
-    {
-        printf("%s\n", current->str);
-        current = current->next;
-    }
-}
-
-void list_clear(List *list)
-{
-    ListNode *current = list->head;
-    while (current)
-    {
-        ListNode *next = current->next;
-        free(current->str);
-        free(current);
-        current = next;
-    }
-    list->head = NULL;
-    list->tail = NULL;
-    list->lenght = 0;
+    lex_push(l, buf);
 }
 
 
-// чтение строки произвольной длины
-char *read_line(void)
-{
-    char *line = NULL;
-    size_t len = 0;
-    ssize_t nread = getline(&line, &len, stdin);
-    if (nread == -1)
-    {
-        free(line);
-        return NULL;
-    }
-    // если есть символ перевода строки
-    if (nread > 0 && line[nread - 1] == '\n')
-    {
-        line[nread - 1] = '\0';
-    }
-    return line;
-}
+lex_t *lex_parse(const char *s) {
+    lex_t *l = NULL;
+    char buf[1024];
+    int i = 0;
 
-// динамически формируем токены(строка мб длинее любой наперед заданной константы)
+    int in_quotes = 0;
+    int escaped = 0;
 
-// динамическое добавление символа в буффер
-void append_char(char **buf, size_t *buf_size, size_t *buf_len, char c)
-{
-    if (*buf_size == 0)
-    {
-        *buf_size = 1024;
-        *buf = malloc(*buf_size);
-        if (!*buf)
-        {
-            fprintf(stderr, "Memory error\n");
-            exit(1);
-        }
-        (*buf)[0] = '\0';
-        *buf_len = 0;
-    }
+    for (; *s; s++) {
 
-    if (*buf_len + 1 >= *buf_size)
-    {
-        size_t new_size = (*buf_size) * 2;
-        char *new_buf = realloc(*buf, new_size);
-        if (!new_buf)
-        {
-            fprintf(stderr, "Memory error\n");
-            free(*buf);
-            exit(1);
-        }
-        *buf = new_buf;
-        *buf_size = new_size;
-    }
-
-    (*buf)[(*buf_len)++] = c;
-    (*buf)[*buf_len] = '\0';
-}
-
-// динамическое добавление строку в буффер
-void append_str(char **buf, size_t *buf_size, size_t *buf_len, const char *str)
-{
-    size_t slen = strlen(str);
-    while (*buf_len + slen >= *buf_size)
-    {
-        size_t new_size = (*buf_size) * 2;
-        char *new_buf = realloc(*buf, new_size);
-        if (!new_buf)
-        {
-            fprintf(stderr, "Memory error\n");
-            free(*buf);
-            exit(1);
-        }
-        *buf = new_buf;
-        *buf_size = new_size;
-    }
-    memcpy(*buf + *buf_len, str, slen + 1);
-    *buf_len += slen;
-}
-
-// добавлять готовый токен в список
-void add_token(List *lsit, char **buf, size_t *buf_len)
-{
-    if (*buf_len > 0)
-    {
-        list_push(lsit, *buf);
-        // очистка буфера
-        (*buf)[0] = '\0';
-        *buf_len = 0;
-    }
-}
-
-// вспомогательная фунция для получения значений перем. окружения
-static char *replace_variable(const char *var)
-{
-    if (strcmp(var, "HOME") == 0)
-    {
-        const char *val = getenv("HOME");
-        return var ? val : "";
-    }
-
-    if (strcmp(var, "SHELL") == 0)
-    {
-        const char *val = getenv("SHELL");
-        return var ? val : "";
-    }
-
-    if (strcmp(var, "EUID") == 0)
-    {
-        uid_t euid = geteuid();
-        char buf[32];
-        snprintf(buf, sizeof(buf), "%u", euid);
-        return buf;
-    }
-
-    if (strcmp(var, "USER") == 0)
-    {
-        const char *val = getenv("USER");
-        return val ? val : "";
-    }
-
-    return NULL;
-}
-
-// вспомогательная функция для подстановки переменных
-void substitute_variables_in_list(List *list)
-{
-    ListNode *current = list->head;
-    while (current)
-    {
-        char *pos = strstr(current->str, "$");
-        if (pos)
-        {
-            char var_name[128];
-            int i = 0;
-            pos++; // доллар пропускаем
-            // ищем строку и меняем
-            while (isalnum((unsigned char)*pos) && i < (int)sizeof(var_name) - 1)
-            {
-                var_name[i++] = *pos++;
-            }
-            var_name[i] = '\0';
-
-            const char *val = replace_variable(var_name);
-            if (val)
-            {
-                char *old_str = current->str;
-                size_t prefix_len = (pos - old_str) - (1 + i);
-                size_t new_len = prefix_len + strlen(val) + strlen(pos) + 1;
-                char *new_str = malloc(new_len);
-                if (new_str)
-                {
-                    memcpy(new_str, old_str, prefix_len);
-                    strcpy(new_str + prefix_len, val);
-                    strcat(new_str, pos);
-                    free(old_str);
-                    current->str = new_str;
-                }
-            }
-        }
-        current = current->next;
-    }
-}
-
-int tokenize_line(const char *line, List *list)
-{
-    list_init(list);
-    if (!line || *line == '\0')
-    {
-        return 0;
-    }
-
-    int in_single_quot = 0; // 1 кавычки
-    int in_double_quot = 0; // 2 кавычки
-    int in_comm = 0;        // после #
-    int escaped = 0;        // посел /
-
-    const char *p = line;
-    char *token_buf = NULL; // динамически обрабатываем символы токена
-    size_t buf_size = 0, buf_len = 0;
-
-    while (*p)
-    {
-        char c = *p;
-
-        if (in_comm)
-        {
-            p++;
-            continue;
-        }
-
-        if (escaped)
-        {
-            append_char(&token_buf, &buf_size, &buf_len, c);
+        if (escaped) {
+            if (i < (int)sizeof(buf)-1)
+                buf[i++] = *s;
             escaped = 0;
-            p++;
             continue;
         }
 
-        if (c == '\\')
-        {
+        if (*s == '\\') {
             escaped = 1;
-            p++;
             continue;
         }
 
-        if (c == '\\')
-        {
-            escaped = 1;
-            p++;
+        if (*s == '"') {
+            in_quotes = !in_quotes;
             continue;
         }
 
-        if (!in_single_quot && !in_double_quot && c == '#')
-        {
-            in_comm = 1;
-            p++;
-            continue;
-        }
+        if (!in_quotes && *s == '#')
+            break;
 
-        if (c == '\'')
-        {
-            if (!in_double_quot)
-            {
-                in_single_quot = !in_single_quot;
+        if (!in_quotes && isspace((unsigned char)*s)) {
+            if (i) {
+                buf[i] = 0;
+                emit_token(&l, buf);
+                i = 0;
             }
-            else
-            {
-                append_char(&token_buf, &buf_size, &buf_len, c);
-            }
-            p++;
-            continue;
         }
-
-        if (c == '"')
-        {
-            if (!in_single_quot)
-            {
-                in_double_quot = !in_double_quot;
+        else if (!in_quotes && strchr("|&;()<>", *s)) {
+            if (i) {
+                buf[i] = 0;
+                emit_token(&l, buf);
+                i = 0;
             }
-            else
-            {
-                append_char(&token_buf, &buf_size, &buf_len, c);
+            char t[3] = { *s, 0, 0 };
+            if ((s[0]=='&'&&s[1]=='&') ||
+                (s[0]=='|'&&s[1]=='|') ||
+                (s[0]=='>'&&s[1]=='>')) {
+                t[1] = *++s;
             }
-            p++;
-            continue;
+            lex_push(&l, t);
         }
-
-        if (!in_single_quot && !in_double_quot && isspace((unsigned char)c))
-        {
-            add_token(list, &token_buf, &buf_len);
-            p++;
-            continue;
+        else {
+            if (i < (int)sizeof(buf)-1)
+                buf[i++] = *s;
         }
-
-        append_char(&token_buf, &buf_size, &buf_len, c); // если просто символ
-        p++;
     }
 
-    add_token(list, &token_buf, &buf_len);
+    if (i) {
+        buf[i] = 0;
+        emit_token(&l, buf);
+    }
+    return l;
+}
 
-    free(token_buf);
 
-    substitute_variables_in_list(list);
-
-    return (int)list->lenght;
+void lex_free(lex_t *l) {
+    while (l) {
+        lex_t *n = l->next;
+        free(l->s);
+        free(l);
+        l = n;
+    }
 }

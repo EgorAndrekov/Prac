@@ -1,28 +1,10 @@
-PROG = my_shell
-CC = gcc
-CFLAGS = -g -Wall
+CC=gcc
+CFLAGS=-std=c99 -Wall -Wextra -g
 
-OBJ = list.o tree.o exec.o main.o
+OBJ=main.o list.o tree.o exec.o
 
-all: $(PROG)
-
-list.o: list.c list.h
-	$(CC) $(CFLAGS) -c list.c -o list.o
-
-tree.o: tree.c tree.h list.h
-	$(CC) $(CFLAGS) -c tree.c -o tree.o
-
-exec.o: exec.c exec.h tree.h
-	$(CC) $(CFLAGS) -c exec.c -o exec.o
-
-main.o: main.c list.h tree.h exec.h
-	$(CC) $(CFLAGS) -c main.c -o main.o
-
-$(PROG): $(OBJ)
-	$(CC) $(CFLAGS) $(OBJ) -o $(PROG)
+my_shell: $(OBJ)
+	$(CC) $(CFLAGS) -o my_shell $(OBJ)
 
 clean:
-	rm -f *.o $(PROG)
-
-run:
-	./$(PROG)
+	rm -f *.o my_shell
