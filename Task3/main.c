@@ -33,7 +33,7 @@ int is_special_char(int ch) {
     return ch == '|' || ch == '&' || ch == ';' || ch == '>' || ch == '<' || ch == '(' || ch == ')';
 }
 
-int main() {
+int main(void) {
     init_list();
     
     State state = START;
@@ -59,6 +59,8 @@ int main() {
                 
                     if (get_list_size() > 0) {
                         print_size();
+                        print_list();
+                        reverse_list();
                         print_list();
                         sort_list();
                         print_list();
@@ -234,6 +236,8 @@ int main() {
     
     if (get_list_size() > 0) {
         print_size();
+        print_list();
+        reverse_list();
         print_list();
         sort_list();
         print_list();

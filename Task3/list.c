@@ -9,6 +9,25 @@ static char** list = NULL;
 static int list_size = 0;
 static int list_capacity = 0;
 
+void reverse_list() {
+    if (list == NULL || list_size <= 1) {
+        return;
+    }
+    
+    int start = 0;
+    int end = list_size - 1;
+    
+    while (start < end) {
+        char* temp = list[start];
+        list[start] = list[end];
+        list[end] = temp;
+        
+        start++;
+        end--;
+    }
+}
+
+
 void init_list() {
     list = malloc(SIZE * sizeof(char*));
     list_capacity = SIZE;

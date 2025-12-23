@@ -7,6 +7,8 @@ void print_list();
 void print_size();
 void clear_list();
 void init_list();
+void reverse_list();
 int get_list_size();
+
 
 #endif
