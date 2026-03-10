@@ -6,6 +6,8 @@
 
 extern volatile sig_atomic_t sigint_received;
 
+char **get_history(void);
+int get_history_count(void);
 
 extern int shell_exit;
 int exec_tree(cmd_t *t);

@@ -1,0 +1,36 @@
+total 136
+-rw-r--r-- 1 e_and e_and   165 Dec 23 05:50 Makefile
+-rw-r--r-- 1 e_and e_and  3787 Dec 23 05:50 README.md
+-rw-r--r-- 1 e_and e_and  2783 Dec 23 05:50 exec.c
+-rw-r--r-- 1 e_and e_and   187 Dec 23 05:50 exec.h
+-rw-r--r-- 1 e_and e_and 11752 Dec 23 09:21 exec.o
+-rw-r--r-- 1 e_and e_and  2726 Dec 23 05:50 list.c
+-rw-r--r-- 1 e_and e_and   177 Dec 23 05:50 list.h
+-rw-r--r-- 1 e_and e_and  9560 Dec 23 09:21 list.o
+-rw-r--r-- 1 e_and e_and  2311 Dec 23 09:21 main.c
+-rw-r--r-- 1 e_and e_and 12408 Dec 23 09:21 main.o
+-rwxr-xr-x 1 e_and e_and 35632 Dec 23 09:21 my_shell
+-rw-r--r-- 1 e_and e_and     0 Dec 23 09:21 out.txt
+-rw-r--r-- 1 e_and e_and   487 Dec 23 05:50 tests.txt
+-rw-r--r-- 1 e_and e_and  4055 Dec 23 05:50 tree.c
+-rw-r--r-- 1 e_and e_and   419 Dec 23 05:50 tree.h
+-rw-r--r-- 1 e_and e_and 13280 Dec 23 09:21 tree.o
+-rw-r--r-- 1 e_and e_and  1057 Dec 23 05:50 бнф
+total 140
+-rw-r--r-- 1 e_and e_and   165 Dec 23 05:50 Makefile
+-rw-r--r-- 1 e_and e_and  3787 Dec 23 05:50 README.md
+-rw-r--r-- 1 e_and e_and  2783 Dec 23 05:50 exec.c
+-rw-r--r-- 1 e_and e_and   187 Dec 23 05:50 exec.h
+-rw-r--r-- 1 e_and e_and 11752 Dec 23 09:21 exec.o
+-rw-r--r-- 1 e_and e_and  2726 Dec 23 05:50 list.c
+-rw-r--r-- 1 e_and e_and   177 Dec 23 05:50 list.h
+-rw-r--r-- 1 e_and e_and  9560 Dec 23 09:21 list.o
+-rw-r--r-- 1 e_and e_and  2311 Dec 23 09:21 main.c
+-rw-r--r-- 1 e_and e_and 12408 Dec 23 09:21 main.o
+-rwxr-xr-x 1 e_and e_and 35632 Dec 23 09:21 my_shell
+-rw-r--r-- 1 e_and e_and   888 Dec 23 09:21 out.txt
+-rw-r--r-- 1 e_and e_and   487 Dec 23 05:50 tests.txt
+-rw-r--r-- 1 e_and e_and  4055 Dec 23 05:50 tree.c
+-rw-r--r-- 1 e_and e_and   419 Dec 23 05:50 tree.h
+-rw-r--r-- 1 e_and e_and 13280 Dec 23 09:21 tree.o
+-rw-r--r-- 1 e_and e_and  1057 Dec 23 05:50 бнф

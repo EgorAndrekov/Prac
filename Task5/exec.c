@@ -13,7 +13,18 @@ static int is_builtin(cmd_t *c) {
     return c && c->argv &&
         (!strcmp(c->argv[0],"cd") ||
          !strcmp(c->argv[0],"pwd")||
-         !strcmp(c->argv[0],"exit"));
+         !strcmp(c->argv[0],"exit")||
+         !strcmp(c->argv[0],"his"));
+}
+
+
+static void print_history() {
+    char **history = get_history();
+    int count = get_history_count();
+    
+    for (int i = 0; i < count; i++) {
+        printf("%s\n", history[i]);
+    }
 }
 
 static int run_builtin(cmd_t *c) {
@@ -29,6 +40,10 @@ static int run_builtin(cmd_t *c) {
     if (!strcmp(c->argv[0],"pwd")) {
         char b[1024];
         if (getcwd(b,sizeof(b))) puts(b);
+        return 0;
+    }
+    if (!strcmp(c->argv[0],"his")) {
+        print_history();
         return 0;
     }
     return 0;

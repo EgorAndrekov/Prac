@@ -35,7 +35,6 @@ static cmd_t *parse_simple(lex_t **l) {
             !strcmp((*l)->s,")"))
             break;
         
-        /* --- subshell: ( ... ) --- */
         if (!strcmp((*l)->s, "(")) {
             *l = (*l)->next;
 
